@@ -18,17 +18,31 @@
 
 package org.magnum.mobilecloud.video;
 
+import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
-import org.magnum.mobilecloud.video.client.VideoSvcApi;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
 import org.magnum.mobilecloud.video.repository.Video;
+import org.magnum.mobilecloud.video.repository.VideoRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.google.common.collect.Lists;
 
 @Controller
 public class AnEmptyController {
@@ -50,6 +64,10 @@ public class AnEmptyController {
 	 * 
 	 */
 	
+	private VideoRepository videoRepository;
+	private static final AtomicLong currentId = new AtomicLong(0L);
+	private Map<Long, Video> video = new HashMap<Long, Video>();
+
 	@RequestMapping(value="/go", method=RequestMethod.GET)
 	public @ResponseBody String goodLuck(){
 		return "Good Luck!";
@@ -57,44 +75,80 @@ public class AnEmptyController {
 	
 	@GetMapping(value="/video")
 	public @ResponseBody Collection<Video> getVideoList() {
-		// TODO Auto-generated method stub
-		return null;
+		return video.values();
 	}
 	
 	@GetMapping(value="/video/{id}")
-	public @ResponseBody Video getVideoById(@PathVariable("id") long id) {
-		// TODO Auto-generated method stub
-		return null;
+	public @ResponseBody Video getVideoById(@PathVariable("id") long id, HttpServletResponse response) {
+		Video v = new Video();
+		try {
+			v = video.get(id);
+		} catch (Exception e) {
+			response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+		}
+		return v;
 	}
 	
 	@PostMapping(value="/video")
-	public @ResponseBody Video addVideo(Video v) {
-		// TODO Auto-generated method stub
-		return null;
+	public @ResponseBody Video addVideo(@RequestBody Video v, HttpServletRequest request, HttpServletResponse response) throws IOException {
+		try {
+			v.setId(currentId.incrementAndGet());
+			v.setLikes(0);
+			video.put(v.getId(), v);
+		} catch (Exception e) {
+			response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+		}
+		return v;
 	}
 
 	@PostMapping(value="/video/{id}/like")
-	public @ResponseBody Void likeVideo(long id) {
-		// TODO Auto-generated method stub
-		return null;
+	public void likeVideo(@PathVariable("id") long id, HttpServletResponse response) {
+		try {
+			Video v = video.get(id);
+			if (v.getLikes() == 1) {
+				response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			} else if (v.getLikes() == 0) {
+				v.setLikes(1);
+				response.setStatus(HttpServletResponse.SC_OK);
+			} 
+		} catch (Exception e) {
+			response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+		}
 	}
 
 	@PostMapping(value="/video/{id}/unlike")
-	public Void unlikeVideo(long id) {
-		// TODO Auto-generated method stub
-		return null;
+	public void unlikeVideo(@PathVariable("id") long id, HttpServletResponse response) {
+		try {
+			Video v = video.get(id);
+			if (v.getLikes() == 1) {
+				v.setLikes(0);
+				response.setStatus(HttpServletResponse.SC_OK);
+			} else {
+				response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			}
+		} catch (Exception e) {
+			response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+		}
 	}
 	
-	@GetMapping(value="/video/search/findByName?title={title}")
-	public @ResponseBody Collection<Video> findByTitle(String title) {
-		// TODO Auto-generated method stub
-		return null;
+	@GetMapping(value="/video/search/findByName")
+	public @ResponseBody Collection<Video> findByName(@RequestParam("title") String title) {
+		Map<Long,Video> list = new HashMap<>();
+		for (Video value: video.values()) {
+			if( value.getName().equals(title))
+				list.put(value.getId(),value);
+		}
+		return list.values();
 	}
 	
-	@GetMapping(value="/video/search/findByDurationLessThan?duration={duration}")
-	public @ResponseBody Collection<Video> findByDurationLessThan(long duration) {
-		// TODO Auto-generated method stub
-		return null;
+	@GetMapping(value="/video/search/findByDurationLessThan")
+	public @ResponseBody Collection<Video> findByDurationLessThan(@RequestParam("duration") long duration) {
+		Map<Long,Video> list = new HashMap<>();
+		for (Video value: video.values()) {
+			if (value.getDuration() < duration) {
+				list.put(value.getId(),value);
+			}
+		}
+		return list.values();
 	}
-	
 }
